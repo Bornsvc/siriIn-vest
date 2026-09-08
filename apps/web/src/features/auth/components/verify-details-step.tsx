@@ -1,8 +1,9 @@
 "use client";
 
 import { Field, Input, Select } from "@/shared/ui";
-import { FUND_SOURCES, type DetailErrors, type Details } from "../lib/verify";
+import type { DetailErrors, Details } from "../lib/verify";
 import type { Province } from "../lib/provinces";
+import type { FundSource } from "../lib/fund-sources";
 
 /**
  * Everything the reviewer compares against the document photo, plus the one
@@ -12,15 +13,18 @@ export function VerifyDetailsStep({
   value,
   errors,
   provinces,
+  fundSources,
   onChange,
 }: {
   value: Details;
   errors: DetailErrors;
   /** From the API. Empty means the call failed, which the field says out loud. */
   provinces: Province[];
+  fundSources: FundSource[];
   onChange: (patch: Partial<Details>) => void;
 }) {
   const unavailable = provinces.length === 0;
+  const fundsUnavailable = fundSources.length === 0;
 
   return (
     <div className="space-y-5">
@@ -156,7 +160,15 @@ export function VerifyDetailsStep({
       <Field
         label="Source of the money you invest"
         htmlFor="verify-funds"
-        hint="Lao anti-money-laundering rules require this before an account can hold money."
+        hint={
+          fundsUnavailable ? (
+            <span id="verify-funds-hint">
+              This list could not be loaded. Reload the page to try again.
+            </span>
+          ) : (
+            "Lao anti-money-laundering rules require this before an account can hold money."
+          )
+        }
         error={
           errors.funds ? <span id="verify-funds-error">{errors.funds}</span> : null
         }
@@ -165,13 +177,22 @@ export function VerifyDetailsStep({
           id="verify-funds"
           name="funds"
           value={value.funds}
+          disabled={fundsUnavailable}
           aria-invalid={errors.funds ? true : undefined}
-          aria-describedby={errors.funds ? "verify-funds-error" : undefined}
+          aria-describedby={
+            errors.funds
+              ? "verify-funds-error"
+              : fundsUnavailable
+                ? "verify-funds-hint"
+                : undefined
+          }
           onChange={(event) => onChange({ funds: event.target.value })}
         >
-          <option value="">Select a source</option>
-          {FUND_SOURCES.map((source) => (
-            <option key={source.value} value={source.value}>
+          <option value="">
+            {fundsUnavailable ? "Unavailable" : "Select a source"}
+          </option>
+          {fundSources.map((source) => (
+            <option key={source.code} value={source.code}>
               {source.label}
             </option>
           ))}

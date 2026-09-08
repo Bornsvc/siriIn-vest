@@ -1,4 +1,4 @@
-import type { DocumentType } from "./verify";
+import type { DocumentType, PhotoUpload } from "./verify";
 
 /**
  * Client-side validation for the signed-out forms.
@@ -162,16 +162,45 @@ export function validateIdNumber(
   return null;
 }
 
-/** 10 MB is what the reviewer's tooling accepts, so it is what we accept. */
+/** 10 MB and this allowlist are the bucket's own limits, echoed here so a
+    doomed upload never leaves the browser. */
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/heic",
+  "image/heif",
+]);
 
+/** Checked the moment a file is chosen, before an upload is attempted. */
 export function validateUpload(file: File | null, what: string): string | null {
   if (!file) return `Add a photo of ${what}.`;
-  if (!file.type.startsWith("image/")) {
+  if (!IMAGE_TYPES.has(file.type.toLowerCase())) {
     return "Use a photo — JPEG, PNG or HEIC.";
   }
   if (file.size > MAX_UPLOAD_BYTES) {
     return "That photo is over 10 MB. Try again at a lower resolution.";
   }
   return null;
+}
+
+/**
+ * Checked at "Continue" / "Submit for review": has this slot actually
+ * finished the trip to the bucket, not just been chosen. `validateUpload`
+ * decides whether an upload is worth attempting; this decides whether one
+ * has to be waited for or retried.
+ */
+export function validatePhotoReady(
+  slot: PhotoUpload,
+  what: string,
+): string | null {
+  if (!slot.file) return `Add a photo of ${what}.`;
+  if (slot.status === "uploading") {
+    return "Still uploading — give it a moment.";
+  }
+  if (slot.status === "error") {
+    return "That upload did not go through. Choose the photo again.";
+  }
+  if (slot.status === "done" && slot.storageKey) return null;
+  return `Add a photo of ${what}.`;
 }

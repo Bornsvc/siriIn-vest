@@ -1,3 +1,5 @@
+import type { DocumentKindValue } from "./kyc-api";
+
 /**
  * Domain data for the identity check.
  *
@@ -44,7 +46,8 @@ export const VERIFY_STEPS: VerifyStep[] = [
   },
 ];
 
-export type DocumentType = "national-id" | "passport";
+/** Values the API accepts directly — kept identical so nothing needs mapping. */
+export type DocumentType = "national_id" | "passport";
 
 /** State keys stay `front`/`back` for both document types; a passport just uses one. */
 export type DocumentSide = "front" | "back";
@@ -55,11 +58,18 @@ type DocumentSpec = {
   numberHint: string;
   placeholder: string;
   /** `missing` is the phrase the "add a photo of …" error is built from. */
-  sides: { id: DocumentSide; label: string; hint: string; missing: string }[];
+  sides: {
+    id: DocumentSide;
+    label: string;
+    hint: string;
+    missing: string;
+    /** The `kind` `/kyc/uploads` and `/kyc/submissions` expect for this face. */
+    kind: DocumentKindValue;
+  }[];
 };
 
 export const DOCUMENT_TYPES: Record<DocumentType, DocumentSpec> = {
-  "national-id": {
+  national_id: {
     label: "Lao ID card",
     numberLabel: "ID number",
     numberHint: "The long number printed under your photo.",
@@ -70,12 +80,14 @@ export const DOCUMENT_TYPES: Record<DocumentType, DocumentSpec> = {
         label: "Front",
         hint: "The side carrying your photo and name.",
         missing: "the front of your ID card",
+        kind: "id_front",
       },
       {
         id: "back",
         label: "Back",
         hint: "The side carrying the issuing office and date.",
         missing: "the back of your ID card",
+        kind: "id_back",
       },
     ],
   },
@@ -90,23 +102,11 @@ export const DOCUMENT_TYPES: Record<DocumentType, DocumentSpec> = {
         label: "Photo page",
         hint: "The page with your photo and the two machine-readable lines.",
         missing: "your passport photo page",
+        kind: "passport_page",
       },
     ],
   },
 };
-
-/**
- * Source of funds is the question anti-money-laundering rules actually ask.
- * It is not filler on the way to the upload.
- */
-export const FUND_SOURCES = [
-  { value: "salary", label: "Salary or wages" },
-  { value: "business", label: "Business income" },
-  { value: "savings", label: "Savings" },
-  { value: "investments", label: "Returns on other investments" },
-  { value: "family", label: "Family support or gift" },
-  { value: "inheritance", label: "Inheritance" },
-];
 
 export type Details = {
   name: string;
@@ -115,19 +115,39 @@ export type Details = {
   district: string;
   /** A province `code`, not its name — see `lib/provinces.ts`. */
   province: string;
+  /** A fund-source `code` — see `lib/fund-sources.ts`. */
   funds: string;
 };
 
 export type DetailErrors = Partial<Record<keyof Details, string>>;
 
+/**
+ * One photo, from the moment it is chosen to the moment the bucket confirms
+ * it. `storageKey` is only set once `status` is `"done"` — that is what the
+ * final submit is allowed to send.
+ */
+export type PhotoUpload = {
+  file: File | null;
+  storageKey: string | null;
+  status: "idle" | "uploading" | "done" | "error";
+};
+
+export const EMPTY_PHOTO: PhotoUpload = {
+  file: null,
+  storageKey: null,
+  status: "idle",
+};
+
 export type DocumentDraft = {
   type: DocumentType;
   number: string;
-  front: File | null;
-  back: File | null;
+  front: PhotoUpload;
+  back: PhotoUpload;
 };
 
-export type DocumentErrors = Partial<Record<"number" | DocumentSide, string>>;
+export type DocumentErrors = Partial<
+  Record<"number" | "general" | DocumentSide, string>
+>;
 
 export const EMPTY_DETAILS: Details = {
   name: "",
@@ -137,10 +157,3 @@ export const EMPTY_DETAILS: Details = {
   province: "",
   funds: "",
 };
-
-/** Shown back on the review screen — the last four digits are enough to recognise. */
-export function maskDocumentNumber(value: string): string {
-  const compact = value.replace(/\s+/g, "");
-  if (compact.length <= 4) return compact;
-  return `${"•".repeat(Math.min(compact.length - 4, 8))}${compact.slice(-4)}`;
-}

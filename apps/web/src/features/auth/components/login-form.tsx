@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Note } from "@/shared/ui";
+import { ApiError } from "@/shared/lib/api-client";
+import { signIn } from "../lib/auth-api";
+import { saveSession } from "../lib/session";
 import { validateEmail } from "../lib/validation";
 import { PasswordInput } from "./password-input";
 
@@ -14,18 +17,11 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [errors, setErrors] = useState<Errors>({});
+  const [formError, setFormError] = useState<string>();
   const [showReset, setShowReset] = useState(false);
   const [pending, setPending] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
 
@@ -41,10 +37,46 @@ export function LoginForm() {
       return;
     }
 
-    // There is no backend in the MVP. The pending state is the honest part:
-    // it is what the customer will see when there is one.
     setPending(true);
-    timer.current = setTimeout(() => router.push("/home"), 600);
+    setFormError(undefined);
+    try {
+      const session = await signIn({ email, password });
+      saveSession(session);
+      // A customer who never finished the identity check picks up exactly
+      // where they left off; everyone else goes straight to their account.
+      router.push(session.user.status === "verified" ? "/home" : "/verify");
+    } catch (error) {
+      setPending(false);
+
+      if (error instanceof ApiError) {
+        if (error.code === "INVALID_CREDENTIALS") {
+          // A wrong password and an unknown email look identical on purpose —
+          // the message says so without pointing at either field.
+          setFormError(error.message);
+          document.getElementById("login-email")?.focus();
+          return;
+        }
+        if (error.code === "VALIDATION_FAILED" && error.details.length > 0) {
+          const fieldErrors: Errors = {};
+          for (const detail of error.details) {
+            if (detail.field === "email" || detail.field === "password") {
+              fieldErrors[detail.field] = detail.message;
+            }
+          }
+          setErrors((prev) => ({ ...prev, ...fieldErrors }));
+          document
+            .getElementById(fieldErrors.email ? "login-email" : "login-password")
+            ?.focus();
+          return;
+        }
+        setFormError(error.message);
+        return;
+      }
+
+      setFormError(
+        error instanceof Error ? error.message : "Something went wrong. Try again.",
+      );
+    }
   }
 
   return (
@@ -129,10 +161,16 @@ export function LoginForm() {
       {showReset ? (
         <div id="login-reset-note">
           <Note>
-            Password reset arrives with the account service. Until then any
-            email and password will get you in.
+            Password reset isn&rsquo;t available yet. Contact support if
+            you&rsquo;re locked out.
           </Note>
         </div>
+      ) : null}
+
+      {formError ? (
+        <p role="alert" className="text-[13px] text-loss">
+          {formError}
+        </p>
       ) : null}
 
       <Button type="submit" size="lg" block disabled={pending}>

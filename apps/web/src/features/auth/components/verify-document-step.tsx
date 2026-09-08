@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { Chip, Field, Input } from "@/shared/ui";
 import { IconCheck, IconIdCard } from "@/shared/ui/icons";
+import type { DocumentKindValue } from "../lib/kyc-api";
 import {
   DOCUMENT_TYPES,
   type DocumentDraft,
@@ -22,11 +23,17 @@ import { CaptureFrame } from "./capture-frame";
 export function VerifyDocumentStep({
   value,
   errors,
-  onChange,
+  onTypeChange,
+  onNumberChange,
+  onSelectPhoto,
+  onRemovePhoto,
 }: {
   value: DocumentDraft;
   errors: DocumentErrors;
-  onChange: (patch: Partial<DocumentDraft>) => void;
+  onTypeChange: (type: DocumentType) => void;
+  onNumberChange: (number: string) => void;
+  onSelectPhoto: (side: DocumentSide, kind: DocumentKindValue, file: File) => void;
+  onRemovePhoto: (side: DocumentSide) => void;
 }) {
   const spec = DOCUMENT_TYPES[value.type];
   const [side, setSide] = useState<DocumentSide>("front");
@@ -36,25 +43,35 @@ export function VerifyDocumentStep({
   const faulted = spec.sides.find((item) => errors[item.id]);
   const activeId = errors[side] ? side : (faulted?.id ?? side);
   const active = spec.sides.find((item) => item.id === activeId) ?? spec.sides[0];
+  const activeSlot = value[active.id];
 
   /** A Lao ID card front is not a passport page, so switching starts over. */
   function selectType(type: DocumentType) {
     if (type === value.type) return;
     setSide("front");
-    onChange({ type, front: null, back: null });
+    onTypeChange(type);
   }
 
   function capture(file: File | null) {
-    onChange({ [active.id]: file });
-    // Turn the card over for them, and keep the stored pick in step with the
-    // face they just used so clearing the fault does not snap it back.
+    if (file) {
+      onSelectPhoto(active.id, active.kind, file);
+    } else {
+      onRemovePhoto(active.id);
+    }
+    // Turn the card over for them once the front is captured.
     const turn =
-      file && active.id === "front" && spec.sides.length > 1 && !value.back;
+      file && active.id === "front" && spec.sides.length > 1 && !value.back.storageKey;
     setSide(turn ? "back" : active.id);
   }
 
   return (
     <div className="space-y-5">
+      {errors.general ? (
+        <p role="alert" className="text-[13px] text-loss">
+          {errors.general}
+        </p>
+      ) : null}
+
       <fieldset>
         <legend className="mb-2 block text-[13px] font-medium text-ink-700">
           Which document are you using?
@@ -96,7 +113,7 @@ export function VerifyDocumentStep({
           aria-describedby={
             errors.number ? "verify-doc-number-error" : undefined
           }
-          onChange={(event) => onChange({ number: event.target.value })}
+          onChange={(event) => onNumberChange(event.target.value)}
         />
       </Field>
 
@@ -109,8 +126,9 @@ export function VerifyDocumentStep({
         capture="environment"
         label={active.label}
         hint={active.hint}
-        file={value[active.id]}
+        file={activeSlot.file}
         error={errors[active.id]}
+        uploading={activeSlot.status === "uploading"}
         onChange={capture}
         // The faces sit on the stage rather than above it: a card is turned
         // over, not chosen from a list.
@@ -131,7 +149,7 @@ export function VerifyDocumentStep({
                   )}
                 >
                   {item.label}
-                  {value[item.id] ? (
+                  {value[item.id].status === "done" ? (
                     <>
                       <IconCheck className="size-3" />
                       <span className="sr-only">captured</span>

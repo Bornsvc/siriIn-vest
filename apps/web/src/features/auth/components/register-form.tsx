@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input } from "@/shared/ui";
+import { ApiError } from "@/shared/lib/api-client";
+import { signUp } from "../lib/auth-api";
+import { saveSession } from "../lib/session";
 import {
   validateEmail,
   validateLaoPhone,
@@ -30,6 +33,15 @@ const ORDER = [
   ["terms", "register-terms"],
 ] as const;
 
+/** The API's DTO field names, mapped onto this form's own. */
+const FIELD_MAP: Partial<Record<string, keyof Errors>> = {
+  name: "name",
+  email: "email",
+  phone: "phone",
+  password: "password",
+  acceptedTerms: "terms",
+};
+
 export function RegisterForm() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -38,20 +50,13 @@ export function RegisterForm() {
   const [password, setPassword] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
+  const [formError, setFormError] = useState<string>();
   const [pending, setPending] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
 
   const clear = (key: keyof Errors) =>
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
 
@@ -70,9 +75,55 @@ export function RegisterForm() {
       return;
     }
 
-    // KYC is the next thing that happens, backend or not.
     setPending(true);
-    timer.current = setTimeout(() => router.push("/verify"), 600);
+    setFormError(undefined);
+    try {
+      const session = await signUp({
+        name,
+        email,
+        phone,
+        password,
+        acceptedTerms: accepted,
+      });
+      saveSession(session);
+      // KYC is the next thing that happens: the account is `unverified`
+      // until a check clears.
+      router.push("/verify");
+    } catch (error) {
+      setPending(false);
+
+      if (error instanceof ApiError) {
+        if (error.code === "EMAIL_ALREADY_REGISTERED") {
+          setErrors((prev) => ({ ...prev, email: error.message }));
+          document.getElementById("register-email")?.focus();
+          return;
+        }
+        if (error.code === "PHONE_ALREADY_REGISTERED") {
+          setErrors((prev) => ({ ...prev, phone: error.message }));
+          document.getElementById("register-phone")?.focus();
+          return;
+        }
+        if (error.code === "VALIDATION_FAILED" && error.details.length > 0) {
+          const fieldErrors: Errors = {};
+          for (const detail of error.details) {
+            const key = FIELD_MAP[detail.field];
+            if (key) fieldErrors[key] = detail.message;
+          }
+          setErrors((prev) => ({ ...prev, ...fieldErrors }));
+          const fault = ORDER.find(([key]) => fieldErrors[key]);
+          if (fault) {
+            document.getElementById(fault[1])?.focus();
+            return;
+          }
+        }
+        setFormError(error.message);
+        return;
+      }
+
+      setFormError(
+        error instanceof Error ? error.message : "Something went wrong. Try again.",
+      );
+    }
   }
 
   return (
@@ -246,6 +297,12 @@ export function RegisterForm() {
           </p>
         ) : null}
       </div>
+
+      {formError ? (
+        <p role="alert" className="text-[13px] text-loss">
+          {formError}
+        </p>
+      ) : null}
 
       <Button type="submit" size="lg" block disabled={pending}>
         {pending ? "Creating account…" : "Create account"}

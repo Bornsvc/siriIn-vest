@@ -54,6 +54,7 @@ export function CaptureFrame({
   error,
   capture,
   overlay,
+  uploading,
   onChange,
 }: {
   id: string;
@@ -68,6 +69,9 @@ export function CaptureFrame({
   /** Controls laid over the stage — siblings of the label, so they do not
       reopen the file picker when clicked. */
   overlay?: ReactNode;
+  /** True while this photo is on its way to the bucket. Blocks re-picking,
+      since a second selection mid-flight is how two uploads end up racing. */
+  uploading?: boolean;
   onChange: (file: File | null) => void;
 }) {
   const preview = useMemo(
@@ -90,9 +94,10 @@ export function CaptureFrame({
         <label
           htmlFor={id}
           className={cn(
-            "relative block w-full cursor-pointer overflow-hidden rounded-tile bg-brand-950",
+            "relative block w-full overflow-hidden rounded-tile bg-brand-950",
             "ring-offset-2 ring-offset-surface transition-shadow",
             "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-600",
+            uploading ? "cursor-default" : "cursor-pointer",
             RATIOS[ratio],
           )}
         >
@@ -101,6 +106,7 @@ export function CaptureFrame({
             type="file"
             accept="image/*"
             capture={capture}
+            disabled={uploading}
             className="sr-only"
             aria-describedby={describedBy}
             aria-invalid={error ? true : undefined}
@@ -145,16 +151,24 @@ export function CaptureFrame({
               </span>
             </span>
           ) : null}
+
+          {uploading ? (
+            <span className="absolute inset-0 grid place-items-center bg-brand-950/70">
+              <span className="text-[12px] font-medium text-white">
+                Uploading…
+              </span>
+            </span>
+          ) : null}
         </label>
 
-        {overlay ? (
+        {overlay && !uploading ? (
           <div className="absolute left-1/2 top-2.5 z-10 flex -translate-x-1/2 gap-1.5">
             {overlay}
           </div>
         ) : null}
 
         {/* A sibling, not a child: inside the label it would reopen the picker. */}
-        {captured ? (
+        {captured && !uploading ? (
           <button
             type="button"
             onClick={() => onChange(null)}
