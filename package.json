@@ -1,26 +1,29 @@
 {
-  "name": "siriinvest_app",
+  "name": "siriinvest",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "next": "16.3.4",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "dev": "concurrently -n web,api -c cyan,magenta \"npm:dev:web\" \"npm:dev:api\"",
+    "dev:web": "npm run dev -w siriinvest-web",
+    "dev:api": "npm run start:dev -w siriinvest-api",
+    "build": "npm run build:web && npm run build:api",
+    "build:web": "npm run build -w siriinvest-web",
+    "build:api": "npm run build -w siriinvest-api",
+    "start:web": "npm run start -w siriinvest-web",
+    "start:api": "npm run start:prod -w siriinvest-api",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test -w siriinvest-api",
+    "test:e2e": "npm run test:e2e -w siriinvest-api",
+    "db:migrate": "npm run db:migrate -w siriinvest-api",
+    "db:generate": "npm run db:generate -w siriinvest-api",
+    "db:studio": "npm run db:studio -w siriinvest-api",
+    "db:test:setup": "npm run db:test:setup -w siriinvest-api"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.4",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "concurrently": "^9.1.2"
   }
 }

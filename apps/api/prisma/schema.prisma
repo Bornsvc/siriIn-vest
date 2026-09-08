@@ -1,0 +1,38 @@
+// The account store. `npx prisma migrate dev` from apps/api after any change.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+  // The API is CommonJS; the default ESM client cannot be required from it.
+  moduleFormat = "cjs"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Identity is verified once, before the account can hold money or trade.
+enum UserStatus {
+  unverified
+  verified
+
+  @@map("user_status")
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  fullName     String     @map("full_name")
+  /// Normalized: trimmed and lower-cased.
+  email        String     @unique
+  /// E.164, +856 followed by the national digits.
+  phone        String     @unique
+  passwordHash String     @map("password_hash")
+  status       UserStatus @default(unverified)
+  /// When the customer accepted the terms. An account cannot exist without it.
+  acceptedTermsAt DateTime @map("accepted_terms_at") @db.Timestamptz(3)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("users")
+}
