@@ -1,4 +1,5 @@
 import {
+  laoPhoneToE164,
   normalizeEmail,
   normalizeFullName,
   toE164LaoPhone,
@@ -7,6 +8,7 @@ import {
   validateGivenPassword,
   validateLaoPhone,
   validatePassword,
+  validateSignInIdentifier,
 } from './account-rules';
 
 /**
@@ -83,6 +85,42 @@ describe('account rules', () => {
       expect(validateGivenPassword('a')).toBeNull();
       expect(validateGivenPassword('')).toBe('Enter your password.');
     });
+  });
+
+  describe('signing in', () => {
+    it('takes an email or a phone in the one field', () => {
+      expect(validateSignInIdentifier('name@example.com')).toBeNull();
+      expect(validateSignInIdentifier('20 5551 8842')).toBeNull();
+    });
+
+    it.each([
+      ['', 'Enter your email or phone number.'],
+      ['   ', 'Enter your email or phone number.'],
+      [undefined, 'Enter your email or phone number.'],
+      ['name@example', 'Enter an email address like name@example.com.'],
+      ['12', 'Enter the email or phone number you signed up with.'],
+    ])('rejects %p', (value, message) => {
+      expect(validateSignInIdentifier(value)).toBe(message);
+    });
+
+    it.each([
+      ['20 5551 8842', '+8562055518842'],
+      ['2055518842', '+8562055518842'],
+      ['020 5551 8842', '+8562055518842'],
+      ['+856 20 5551 8842', '+8562055518842'],
+      ['8562055518842', '+8562055518842'],
+      ['008562055518842', '+8562055518842'],
+      ['(020) 5551-8842', '+8562055518842'],
+    ])('reads %p as %p', (typed, e164) => {
+      expect(laoPhoneToE164(typed)).toBe(e164);
+    });
+
+    it.each(['', '12', 'not a number', '20555188421234'])(
+      'makes nothing of %p',
+      (typed) => {
+        expect(laoPhoneToE164(typed)).toBeNull();
+      },
+    );
   });
 
   describe('normalization', () => {

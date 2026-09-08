@@ -169,7 +169,7 @@ describe('Auth (e2e)', () => {
   describe('POST /auth/sign-in', () => {
     it('returns a session for the right password', async () => {
       const response = await post('/auth/sign-in', {
-        email: REGISTERED.email,
+        identifier: REGISTERED.email,
         password: REGISTERED.password,
       }).expect(200);
 
@@ -179,14 +179,39 @@ describe('Auth (e2e)', () => {
       expect(session.accessToken).toEqual(expect.any(String));
     });
 
+    it('takes the phone number instead, however it is written', async () => {
+      for (const identifier of [
+        '20 5551 8842',
+        '2055518842',
+        '020 5551 8842',
+        '+856 20 5551 8842',
+      ]) {
+        const response = await post('/auth/sign-in', {
+          identifier,
+          password: REGISTERED.password,
+        }).expect(200);
+
+        expect(bodyOf<SessionBody>(response).user.email).toBe(REGISTERED.email);
+      }
+    });
+
+    it('asks for one field, not two', async () => {
+      const response = await post('/auth/sign-in', {
+        email: REGISTERED.email,
+        password: REGISTERED.password,
+      }).expect(400);
+
+      expect(bodyOf<ErrorBody>(response).error.code).toBe('VALIDATION_FAILED');
+    });
+
     it('gives a wrong password and an unknown email the same answer', async () => {
       const wrong = await post('/auth/sign-in', {
-        email: REGISTERED.email,
+        identifier: REGISTERED.email,
         password: 'not-the-one1',
       }).expect(401);
 
       const unknown = await post('/auth/sign-in', {
-        email: 'nobody@example.com',
+        identifier: 'nobody@example.com',
         password: 'not-the-one1',
       }).expect(401);
 
@@ -198,7 +223,7 @@ describe('Auth (e2e)', () => {
   describe('GET /auth/me', () => {
     it('returns the caller when the token is good', async () => {
       const signIn = await post('/auth/sign-in', {
-        email: REGISTERED.email,
+        identifier: REGISTERED.email,
         password: REGISTERED.password,
       }).expect(200);
 

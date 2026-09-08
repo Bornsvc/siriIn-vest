@@ -122,7 +122,7 @@ apps/api/
 | Method | Route | |
 | --- | --- | --- |
 | `POST` | `/auth/sign-up` | `name`, `email`, `phone`, `password`, `acceptedTerms` → 201 with a session |
-| `POST` | `/auth/sign-in` | `email`, `password` → 200 with a session |
+| `POST` | `/auth/sign-in` | `identifier` (email **or** Lao phone), `password` → 200 with a session |
 | `GET` | `/auth/me` | the caller, behind `Authorization: Bearer …` |
 | `GET` | `/profile` | the signed-in customer as the app shell draws them |
 | `GET` | `/provinces` | the 18 divisions, public — the identity form needs them before anyone has an account |

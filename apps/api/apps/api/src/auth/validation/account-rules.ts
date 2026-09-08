@@ -124,3 +124,50 @@ export function normalizeFullName(value: string): string {
 export function toE164LaoPhone(value: string): string {
   return `+856${value.replace(/\D/g, '')}`;
 }
+
+/**
+ * The forgiving counterpart, for signing in.
+ *
+ * Sign-up insists on the national part alone, because the form puts +856
+ * beside the field and a customer is reading it off their own SIM. Signing in
+ * is a different moment: they type the number the way they hold it in their
+ * head — with the country code, with the trunk zero, with spaces — and any of
+ * those should find the account rather than be corrected.
+ *
+ * Returns null when nothing sensible can be made of it.
+ */
+export function laoPhoneToE164(value: string): string | null {
+  let digits = value.trim().replace(/[\s\-().]/g, '');
+
+  if (digits.startsWith('+')) digits = digits.slice(1);
+  else if (digits.startsWith('00')) digits = digits.slice(2);
+
+  if (!/^\d+$/.test(digits)) return null;
+
+  // A national number never begins 856 — the mobile prefixes are 20 and 30 —
+  // so a leading 856 is the country code, not part of the subscriber number.
+  if (digits.startsWith('856')) digits = digits.slice(3);
+
+  // The trunk zero, which +856 replaces. Only one: 0055… is not a number.
+  digits = digits.replace(/^0/, '');
+
+  if (digits.length < 8 || digits.length > 10) return null;
+  return `+856${digits}`;
+}
+
+/**
+ * Sign-in takes either. An `@` is the only thing that separates the two
+ * intentions — no Lao phone number contains one, and no email omits one.
+ */
+export function validateSignInIdentifier(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) {
+    return 'Enter your email or phone number.';
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.includes('@')) return validateEmail(trimmed);
+
+  return laoPhoneToE164(trimmed)
+    ? null
+    : 'Enter the email or phone number you signed up with.';
+}

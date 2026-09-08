@@ -6,14 +6,14 @@ import { Button, Field, Input, Note } from "@/shared/ui";
 import { ApiError } from "@/shared/lib/api-client";
 import { signIn } from "../lib/auth-api";
 import { saveSession } from "../lib/session";
-import { validateEmail } from "../lib/validation";
+import { validateSignInIdentifier } from "../lib/validation";
 import { PasswordInput } from "./password-input";
 
-type Errors = { email?: string; password?: string };
+type Errors = { identifier?: string; password?: string };
 
 export function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [errors, setErrors] = useState<Errors>({});
@@ -26,13 +26,14 @@ export function LoginForm() {
     if (pending) return;
 
     const next: Errors = {};
-    const emailError = validateEmail(email);
-    if (emailError) next.email = emailError;
+    const identifierError = validateSignInIdentifier(identifier);
+    if (identifierError) next.identifier = identifierError;
     if (!password) next.password = "Enter your password.";
 
     setErrors(next);
-    if (next.email || next.password) {
-      document.getElementById(next.email ? "login-email" : "login-password")
+    if (next.identifier || next.password) {
+      document
+        .getElementById(next.identifier ? "login-identifier" : "login-password")
         ?.focus();
       return;
     }
@@ -40,7 +41,7 @@ export function LoginForm() {
     setPending(true);
     setFormError(undefined);
     try {
-      const session = await signIn({ email, password });
+      const session = await signIn({ identifier, password });
       saveSession(session);
       // A customer who never finished the identity check picks up exactly
       // where they left off; everyone else goes straight to their account.
@@ -50,22 +51,25 @@ export function LoginForm() {
 
       if (error instanceof ApiError) {
         if (error.code === "INVALID_CREDENTIALS") {
-          // A wrong password and an unknown email look identical on purpose —
-          // the message says so without pointing at either field.
+          // A wrong password and an unregistered email or phone look
+          // identical on purpose — the message says so without pointing at
+          // either field.
           setFormError(error.message);
-          document.getElementById("login-email")?.focus();
+          document.getElementById("login-identifier")?.focus();
           return;
         }
         if (error.code === "VALIDATION_FAILED" && error.details.length > 0) {
           const fieldErrors: Errors = {};
           for (const detail of error.details) {
-            if (detail.field === "email" || detail.field === "password") {
+            if (detail.field === "identifier" || detail.field === "password") {
               fieldErrors[detail.field] = detail.message;
             }
           }
           setErrors((prev) => ({ ...prev, ...fieldErrors }));
           document
-            .getElementById(fieldErrors.email ? "login-email" : "login-password")
+            .getElementById(
+              fieldErrors.identifier ? "login-identifier" : "login-password",
+            )
             ?.focus();
           return;
         }
@@ -82,25 +86,40 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
       <Field
-        label="Email"
-        htmlFor="login-email"
+        label="Email or phone"
+        htmlFor="login-identifier"
+        hint={
+          errors.identifier ? null : (
+            <span id="login-identifier-hint">
+              Whichever you signed up with. The country code is optional.
+            </span>
+          )
+        }
         error={
-          errors.email ? <span id="login-email-error">{errors.email}</span> : null
+          errors.identifier ? (
+            <span id="login-identifier-error">{errors.identifier}</span>
+          ) : null
         }
       >
+        {/* Not `type="email"`: the browser would refuse a phone number before
+            the form ever sees it. `username` is the autocomplete token that
+            covers both. */}
         <Input
-          id="login-email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          inputMode="email"
-          placeholder="name@example.com"
-          value={email}
-          aria-invalid={errors.email ? true : undefined}
-          aria-describedby={errors.email ? "login-email-error" : undefined}
+          id="login-identifier"
+          name="identifier"
+          type="text"
+          autoComplete="username"
+          placeholder="name@example.com or 20 5551 8842"
+          value={identifier}
+          aria-invalid={errors.identifier ? true : undefined}
+          aria-describedby={
+            errors.identifier ? "login-identifier-error" : "login-identifier-hint"
+          }
           onChange={(event) => {
-            setEmail(event.target.value);
-            if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+            setIdentifier(event.target.value);
+            if (errors.identifier) {
+              setErrors((prev) => ({ ...prev, identifier: undefined }));
+            }
           }}
         />
       </Field>

@@ -14,6 +14,7 @@ import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
 import { PasswordHasher } from './password-hasher';
 import {
+  laoPhoneToE164,
   normalizeEmail,
   normalizeFullName,
   toE164LaoPhone,
@@ -64,7 +65,7 @@ export class AuthService {
   }
 
   async signIn(dto: SignInDto): Promise<AuthSession> {
-    const user = await this.users.findByEmail(normalizeEmail(dto.email));
+    const user = await this.findByIdentifier(dto.identifier);
 
     // Compared even when no account matched, against a hash of nothing, so
     // the two outcomes take the same time and cannot be told apart.
@@ -74,6 +75,22 @@ export class AuthService {
     if (!user || !matches) throw invalidCredentials();
 
     return this.issue(user);
+  }
+
+  /**
+   * Email or phone, decided by the shape of what was typed. A phone that
+   * cannot be parsed resolves to no account rather than an error, so a
+   * malformed number and an unregistered one are answered identically.
+   */
+  private findByIdentifier(identifier: string): Promise<User | null> {
+    const trimmed = identifier.trim();
+
+    if (trimmed.includes('@')) {
+      return this.users.findByEmail(normalizeEmail(trimmed));
+    }
+
+    const phone = laoPhoneToE164(trimmed);
+    return phone ? this.users.findByPhone(phone) : Promise.resolve(null);
   }
 
   /** The caller's own record. Anything else is another endpoint's job. */

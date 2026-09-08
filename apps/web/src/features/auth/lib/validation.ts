@@ -38,6 +38,39 @@ export function validateLaoPhone(value: string): string | null {
   return null;
 }
 
+/**
+ * The forgiving read of a Lao number, for signing in. Sign-up insists on the
+ * national part because +856 sits beside that field; here the customer types
+ * the number the way they hold it in their head. Mirrors `laoPhoneToE164` in
+ * the API — same input, same answer.
+ */
+export function laoPhoneToE164(value: string): string | null {
+  let digits = value.trim().replace(/[\s\-().]/g, "");
+
+  if (digits.startsWith("+")) digits = digits.slice(1);
+  else if (digits.startsWith("00")) digits = digits.slice(2);
+
+  if (!/^\d+$/.test(digits)) return null;
+
+  if (digits.startsWith("856")) digits = digits.slice(3);
+  digits = digits.replace(/^0/, "");
+
+  if (digits.length < 8 || digits.length > 10) return null;
+  return `+856${digits}`;
+}
+
+/** Sign-in takes either. An `@` is the only thing that tells them apart. */
+export function validateSignInIdentifier(value: string): string | null {
+  if (!value.trim()) return "Enter your email or phone number.";
+
+  const trimmed = value.trim();
+  if (trimmed.includes("@")) return validateEmail(trimmed);
+
+  return laoPhoneToE164(trimmed)
+    ? null
+    : "Enter the email or phone number you signed up with.";
+}
+
 export type StrengthLevel = 0 | 1 | 2 | 3;
 
 export type PasswordStrength = {

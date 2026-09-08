@@ -23,14 +23,15 @@ export function phoneAlreadyRegistered(): ApiException {
 }
 
 /**
- * One answer for a wrong password and for an email that was never registered.
- * Telling them apart would turn the sign-in form into a list of our customers.
+ * One answer for a wrong password and for an email or phone that was never
+ * registered. Telling them apart would turn the sign-in form into a list of
+ * our customers.
  */
 export function invalidCredentials(): ApiException {
   return new ApiException(
     HttpStatus.UNAUTHORIZED,
     ApiErrorCode.INVALID_CREDENTIALS,
-    'That email and password do not match.',
+    'That email or phone number and password do not match.',
   );
 }
 

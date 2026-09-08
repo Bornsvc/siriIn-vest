@@ -113,7 +113,7 @@ describe('AuthService', () => {
 
     it('returns a session for the right password', async () => {
       const session = await service.signIn({
-        email: 'name@example.com',
+        identifier: 'name@example.com',
         password: 'vientiane1',
       });
 
@@ -124,7 +124,7 @@ describe('AuthService', () => {
     it('accepts the email in any case', async () => {
       await expect(
         service.signIn({
-          email: '  NAME@Example.com ',
+          identifier: '  NAME@Example.com ',
           password: 'vientiane1',
         }),
       ).resolves.toBeDefined();
@@ -133,17 +133,48 @@ describe('AuthService', () => {
     it('rejects a wrong password', async () => {
       await expect(
         codeOf(
-          service.signIn({ email: 'name@example.com', password: 'wrong-one1' }),
+          service.signIn({
+            identifier: 'name@example.com',
+            password: 'wrong-one1',
+          }),
         ),
       ).resolves.toBe(ApiErrorCode.INVALID_CREDENTIALS);
     });
 
-    it('answers an unknown email exactly as it answers a wrong password', async () => {
+    it.each([
+      ['the national part, as sign-up took it', '20 5551 8842'],
+      ['no spaces', '2055518842'],
+      ['the trunk zero the form rejects', '020 5551 8842'],
+      ['the country code written out', '+856 20 5551 8842'],
+      ['the country code without a plus', '8562055518842'],
+      ['the international prefix', '008562055518842'],
+    ])('signs in by phone written %s', async (_case, identifier) => {
+      const session = await service.signIn({
+        identifier,
+        password: 'vientiane1',
+      });
+
+      expect(session.user.phone).toBe('+8562055518842');
+    });
+
+    it('does not treat an unparseable phone as an error of its own', async () => {
+      await expect(
+        codeOf(service.signIn({ identifier: '12', password: 'vientiane1' })),
+      ).resolves.toBe(ApiErrorCode.INVALID_CREDENTIALS);
+    });
+
+    it('answers an unknown identifier exactly as it answers a wrong password', async () => {
       const unknown = await failure(
-        service.signIn({ email: 'nobody@example.com', password: 'vientiane1' }),
+        service.signIn({
+          identifier: 'nobody@example.com',
+          password: 'vientiane1',
+        }),
       );
       const wrong = await failure(
-        service.signIn({ email: 'name@example.com', password: 'wrong-one1' }),
+        service.signIn({
+          identifier: 'name@example.com',
+          password: 'wrong-one1',
+        }),
       );
 
       expect(unknown.body).toEqual(wrong.body);

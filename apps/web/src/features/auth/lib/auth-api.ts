@@ -34,8 +34,9 @@ export function signUp(input: {
   });
 }
 
+/** `identifier` is an email address or a Lao phone number — one field. */
 export function signIn(input: {
-  email: string;
+  identifier: string;
   password: string;
 }): Promise<AuthSession> {
   return apiRequest<AuthSession>("/auth/sign-in", {
