@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   SiriInvest design tokens
+   Brand emerald is carried over from the mobile app. Neutrals are
+   green-tinted rather than pure gray so every surface reads as part of
+   the same product.
+   ------------------------------------------------------------------ */
+@theme {
+  /* Brand */
+  --color-brand-950: #072a20;
+  --color-brand-900: #0a3d2e;
+  --color-brand-800: #0d5741;
+  --color-brand-700: #106e52;
+  --color-brand-600: #16855f;
+  --color-brand-500: #1fa37a;
+  --color-brand-300: #6cc6a4;
+  --color-brand-200: #a8dcc7;
+  --color-brand-100: #d4ede1;
+  --color-brand-50: #eaf6f0;
+
+  /* Market direction — never the only signal, always paired with a glyph */
+  --color-gain: #0f9d58;
+  --color-gain-soft: #e6f5ec;
+  --color-loss: #d93a3f;
+  --color-loss-soft: #fceaea;
+  /* Legible against brand-900/950 grounds, where --color-loss goes muddy. */
+  --color-loss-light: #ff9b9d;
+  --color-warn: #a16207;
+  --color-warn-soft: #fdf4e3;
+
+  /* Ink — desaturated brand hue */
+  --color-ink-950: #0a1410;
+  --color-ink-800: #16241e;
+  --color-ink-700: #2c3b35;
+  --color-ink-500: #4d5f58;
+  --color-ink-400: #6b7c75;
+  --color-ink-300: #9aa9a3;
+  --color-ink-200: #c8d3ce;
+
+  /* Surfaces */
+  --color-canvas: #f2f6f3;
+  --color-surface: #ffffff;
+  --color-line: #e2eae5;
+  --color-line-strong: #cfdbd5;
+
+  /* Type */
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-plex-sans), var(--font-noto-lao), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", monospace;
+  --font-lao: var(--font-noto-lao), var(--font-plex-sans), sans-serif;
+
+  /* Radii — mirrors the mobile card language */
+  --radius-card: 16px;
+  --radius-tile: 12px;
+  --radius-pill: 999px;
+
+  /* Elevation — soft and green-tinted, never neutral black */
+  --shadow-card: 0 1px 2px rgba(10, 61, 46, 0.04), 0 8px 24px -12px rgba(10, 61, 46, 0.12);
+  --shadow-pop: 0 2px 4px rgba(10, 61, 46, 0.06), 0 24px 48px -20px rgba(10, 61, 46, 0.28);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink-950);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv05" 1;
+  }
+
+  /* Every number in a financial UI is tabular. No exceptions. */
+  .tnum,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--color-brand-200);
+    color: var(--color-brand-950);
+  }
+
+  /* Lao glyphs fall through to Noto Sans Lao automatically via the --font-sans
+     stack, so we only need to give the taller script room to breathe. */
+  .lao {
+    font-family: var(--font-lao);
+    line-height: 1.7;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  /* Hairline grid used by the Bridge Bar and empty chart states. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  /* The landing hero's one orchestrated moment. Stagger with --rise-delay. */
+  .rise {
+    animation: rise 640ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: var(--rise-delay, 0ms);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
