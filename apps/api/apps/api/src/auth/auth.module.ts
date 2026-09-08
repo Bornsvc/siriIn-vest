@@ -25,6 +25,8 @@ import { BcryptPasswordHasher, PasswordHasher } from './password-hasher';
     AuthService,
     { provide: PasswordHasher, useClass: BcryptPasswordHasher },
   ],
-  exports: [AuthService],
+  // JwtModule travels with the guard: any module that puts JwtAuthGuard on a
+  // route needs the JwtService that verifies the token.
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

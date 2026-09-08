@@ -18,6 +18,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test -w siriinvest-api",
     "test:e2e": "npm run test:e2e -w siriinvest-api",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
     "db:migrate": "npm run db:migrate -w siriinvest-api",
     "db:generate": "npm run db:generate -w siriinvest-api",
     "db:studio": "npm run db:studio -w siriinvest-api",

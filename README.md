@@ -80,7 +80,10 @@ Two rules keep it from tangling:
   a portfolio total in a component, so no two screens can disagree.
 
 Swapping the mock layer for `apps/api` means replacing `src/mock` and leaving
-the screens alone.
+the screens alone. The identity form is the first screen to make the trip: its
+province select is fed by `GET /provinces` through `shared/lib/api.ts`, so
+`/verify` renders per request rather than being prerendered. Set `API_URL` if
+the API is not on :3001 — see `apps/web/.env.example`.
 
 ## Screens
 
@@ -121,6 +124,11 @@ apps/api/
 | `POST` | `/auth/sign-up` | `name`, `email`, `phone`, `password`, `acceptedTerms` → 201 with a session |
 | `POST` | `/auth/sign-in` | `email`, `password` → 200 with a session |
 | `GET` | `/auth/me` | the caller, behind `Authorization: Bearer …` |
+| `GET` | `/provinces` | the 18 divisions, public — the identity form needs them before anyone has an account |
+| `GET` | `/fund-sources` | the six answers to "where is the money from", public for the same reason |
+| `POST` | `/kyc/uploads` | a signed URL for one photo; the browser PUTs straight to the bucket |
+| `POST` | `/kyc/submissions` | one identity check: the three steps of the form in one request |
+| `GET` | `/kyc/submissions/me` | the caller's most recent check |
 
 `phone` is the national part only — +856 is furniture on the form, so the API
 takes the same digits the customer types and stores E.164. A new account is
@@ -142,17 +150,58 @@ in the unit tests. Neither the service nor its specs know which one they have.
 
 ### The database
 
-Postgres, through Prisma 7. Once:
+Postgres 17 in Docker, through Prisma 7. Once:
 
 ```bash
-createdb siriinvest_dev && createdb siriinvest_test
-cp apps/api/.env.example apps/api/.env   # then put your Postgres user in it
-npm run db:migrate                       # dev database
-npm run db:test:setup                    # the one the e2e suite empties
+cp apps/api/.env.example apps/api/.env
+npm run db:up            # starts the container, waits until it is healthy
+npm run db:migrate       # dev database
+npm run db:test:setup    # the one the e2e suite empties
 ```
 
+`compose.yaml` creates both databases and keeps their data in a named volume,
+so `npm run db:down` stops the container without losing rows — only
+`docker compose down -v` throws them away. It binds **127.0.0.1:5434**, not the
+usual 5432: the container is reachable from this machine only, and 5432 is left
+to whatever Postgres you already run. Set `POSTGRES_PORT` and edit
+`apps/api/.env` to move it.
+
 Then `npm run db:migrate` after any change to `prisma/schema.prisma`, and
-`npm run db:studio` to browse rows. `npm install` regenerates the client, so
+`npm run db:studio` to browse rows.
+
+### Identity documents
+
+Photos go to Google Cloud Storage, never through the API:
+
+```
+browser ──POST /kyc/uploads──▶ api          (mints a key, signs a V4 PUT URL)
+browser ──PUT (signed URL)──▶ bucket        (the bytes, direct)
+browser ──POST /kyc/submissions──▶ api      (quotes the keys back)
+                                   └──▶ bucket: what is actually there?
+```
+
+The API mints the key — `kyc/<user id>/<kind>/<uuid>.jpg` — so a client cannot
+choose where its file lands or quote a key belonging to someone else. Nothing
+about the file is taken on the client's word either: content type, size and
+checksum are read back from the bucket when the submission arrives, because a
+signed PUT cannot cap what is uploaded through it.
+
+`ObjectStorage` is abstract and `StorageModule` names the implementation, so
+the identity flow is tested against a fake and needs no service account to run.
+
+`kyc_submissions` holds one identity check as it was submitted — the details
+are a snapshot, not fields on the user, so a rejected customer who re-submits
+with a corrected spelling leaves two attempts on the record. `kyc_documents`
+points at photos in Google Cloud Storage: a `storage_key`, its content type,
+size and SHA-256, and never the bytes. `@@unique([submissionId, kind])` is what
+makes "a passport has one photo page, an ID card has two sides" a rule the
+database keeps rather than only the form. Every row carries `purge_after`, from
+`KYC_RETENTION_DAYS`.
+
+`provinces` is reference data — Laos' 17 provinces and the capital prefecture,
+seeded by its own migration so every database that migrates has the list. Rows
+are keyed on a slug (`luang-prabang`), because the romanization of a Lao name is
+a display choice and nothing should join on one. `npm install` regenerates the client, so
 `apps/api/generated/` is not committed.
 
 Prisma 7 has no engine binary — queries go through a `pg` driver adapter owned

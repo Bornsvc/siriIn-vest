@@ -18,5 +18,6 @@
   },
   "setupFiles": [
     "<rootDir>/e2e-env.ts"
-  ]
+  ],
+  "maxWorkers": 1
 }

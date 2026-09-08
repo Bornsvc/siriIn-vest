@@ -34,5 +34,133 @@ model User {
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  kycSubmissions KycSubmission[]
+
   @@map("users")
+}
+
+/// Laos' first-level divisions: 17 provinces and the capital prefecture.
+enum ProvinceKind {
+  prefecture
+  province
+
+  @@map("province_kind")
+}
+
+/// Reference data, seeded by its migration and not written to at runtime.
+model Province {
+  /// What other tables reference. Stable across environments and independent
+  /// of romanization, which varies — the name is for display, never for joins.
+  code String       @id
+  name String       @unique
+  kind ProvinceKind
+ 
+  kycSubmissions KycSubmission[]
+
+  @@map("provinces")
+}
+
+/// Where the money a customer invests comes from — the question Lao
+/// anti-money-laundering rules actually ask. Reference data, like provinces.
+model FundSource {
+  code  String @id
+  label String @unique
+  /// Not alphabetical: salary first because it is the common answer.
+  position Int @map("position")
+
+  kycSubmissions KycSubmission[]
+
+  @@map("fund_sources")
+}
+
+enum KycStatus {
+  in_review
+  approved
+  rejected
+
+  @@map("kyc_status")
+}
+
+enum DocumentType {
+  national_id
+  passport
+
+  @@map("document_type")
+}
+
+enum DocumentKind {
+  id_front
+  id_back
+  passport_page
+  selfie
+
+  @@map("document_kind")
+}
+
+/// One identity check, as it was submitted.
+///
+/// The details are a snapshot rather than fields on the user: the reviewer
+/// compares them against the document photographed at that moment, and a
+/// rejected customer who re-submits with a corrected spelling leaves two
+/// attempts on the record, not an overwrite.
+model KycSubmission {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  /// What the customer is told to quote. Shown once, on the review screen.
+  reference String    @unique
+  status    KycStatus @default(in_review)
+
+  fullName       String   @map("full_name")
+  dateOfBirth    DateTime @map("date_of_birth") @db.Date
+  village        String
+  district       String
+  provinceCode   String   @map("province_code")
+  fundSourceCode String   @map("fund_source_code")
+
+  documentType DocumentType @map("document_type")
+  /// The highest-value field in this table and the only one stored in the
+  /// clear. Encrypting it is a migration away; what the U.S. broker needs to
+  /// receive decides which form that takes.
+  documentNumber String @map("document_number")
+
+  submittedAt DateTime  @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  reviewedAt  DateTime? @map("reviewed_at") @db.Timestamptz(3)
+  reviewNote  String?   @map("review_note")
+  /// When this row and its photos may be destroyed. Set from KYC_RETENTION_DAYS
+  /// so the retention period is a regulatory decision, not a constant in code.
+  purgeAfter DateTime @map("purge_after") @db.Timestamptz(3)
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  province   Province      @relation(fields: [provinceCode], references: [code])
+  fundSource FundSource    @relation(fields: [fundSourceCode], references: [code])
+  documents  KycDocument[]
+
+  /// The customer's own history, newest first.
+  @@index([userId, submittedAt])
+  /// The reviewer's queue.
+  @@index([status, submittedAt])
+  @@map("kyc_submissions")
+}
+
+/// A photo backing a submission. The bytes live in Google Cloud Storage; this
+/// row is the pointer to them plus what is needed to check one was not swapped.
+model KycDocument {
+  id           String       @id @default(uuid()) @db.Uuid
+  submissionId String       @map("submission_id") @db.Uuid
+  kind         DocumentKind
+  /// The object name in the bucket. Never a URL, never the bytes.
+  storageKey  String   @map("storage_key")
+  contentType String   @map("content_type")
+  byteSize    Int      @map("byte_size")
+  /// As the bucket reports it — base64 MD5 for Google Cloud Storage. Read back
+  /// from storage at submission, never taken from the request.
+  checksum   String
+  uploadedAt DateTime @default(now()) @map("uploaded_at") @db.Timestamptz(3)
+
+  submission KycSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  /// A passport has one photo page, an ID card has two sides — either way, one
+  /// row per kind. The database enforces it, not just the form.
+  @@unique([submissionId, kind])
+  @@map("kyc_documents")
 }

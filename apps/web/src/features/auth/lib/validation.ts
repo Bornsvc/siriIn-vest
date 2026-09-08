@@ -1,3 +1,5 @@
+import type { DocumentType } from "./verify";
+
 /**
  * Client-side validation for the signed-out forms.
  *
@@ -95,6 +97,81 @@ export function validatePassword(value: string): string | null {
   const strength = scorePassword(value);
   if (strength.level < 2) {
     return strength.advice ?? "Use a longer, more varied password.";
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------
+   Identity check
+   ------------------------------------------------------------------ */
+
+/** A brokerage account holder has to be an adult, and the ID has to prove it. */
+export function validateDateOfBirth(value: string): string | null {
+  if (!value) return "Enter your date of birth.";
+
+  const born = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(born.getTime())) return "Enter a date like 1994-07-21.";
+
+  const today = new Date();
+  if (born > today) return "Enter a date in the past.";
+
+  let age = today.getFullYear() - born.getFullYear();
+  const beforeBirthday =
+    today.getMonth() < born.getMonth() ||
+    (today.getMonth() === born.getMonth() && today.getDate() < born.getDate());
+  if (beforeBirthday) age -= 1;
+
+  if (age < 18) return "You have to be 18 or older to hold a brokerage account.";
+  if (age > 110) return "Check the year — that is more than 110 years ago.";
+  return null;
+}
+
+/**
+ * Village, district and province are presence checks. A reviewer reads the
+ * address against the document; no parser is going to do better.
+ */
+export function validatePlace(value: string, what: string): string | null {
+  if (!value.trim()) return `Enter your ${what}.`;
+  return null;
+}
+
+/**
+ * Shape only, and different shapes per document. Whether the number belongs to
+ * the person is what the reviewer and the document photo settle.
+ */
+export function validateIdNumber(
+  value: string,
+  type: DocumentType,
+): string | null {
+  const trimmed = value.trim();
+
+  if (type === "passport") {
+    if (!trimmed) return "Enter your passport number.";
+    const compact = trimmed.replace(/[\s-]/g, "").toUpperCase();
+    if (!/^[A-Z0-9]{6,12}$/.test(compact)) {
+      return "Enter 6 to 12 letters and digits, like P1234567.";
+    }
+    return null;
+  }
+
+  if (!trimmed) return "Enter the number printed on your ID card.";
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length < 8 || digits.length > 14) {
+    return "Enter the 8 to 14 digit number printed on your ID card.";
+  }
+  return null;
+}
+
+/** 10 MB is what the reviewer's tooling accepts, so it is what we accept. */
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+export function validateUpload(file: File | null, what: string): string | null {
+  if (!file) return `Add a photo of ${what}.`;
+  if (!file.type.startsWith("image/")) {
+    return "Use a photo — JPEG, PNG or HEIC.";
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return "That photo is over 10 MB. Try again at a lower resolution.";
   }
   return null;
 }

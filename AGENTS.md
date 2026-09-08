@@ -32,9 +32,14 @@ driver adapter constructed in `PrismaService`; and configuration lives in
 Prisma's own agent skills under `apps/api/.agents/skills` (`.claude` and
 `.windsurf` link to them) — read those rather than assuming v5/v6 behaviour.
 
-`npm test` is hermetic. `npm run test:e2e` needs a Postgres at
-`TEST_DATABASE_URL` and empties its users table, so it refuses to run when that
-is the same database as `DATABASE_URL`.
+The database is the container in `compose.yaml` — `npm run db:up`, bound to
+127.0.0.1:5434 because 5432 and 5433 are taken on this machine. Both databases
+and the province reference rows come from migrations, so a fresh volume needs
+only `npm run db:migrate && npm run db:test:setup`.
+
+`npm test` is hermetic. `npm run test:e2e` needs that container running and
+empties its users table, so it refuses to run when `TEST_DATABASE_URL` is the
+same database as `DATABASE_URL`.
 
 The two sides are separate TypeScript projects and stay that way: the web app
 cannot import `@app/shared`, and the API must not reach into `apps/web`.

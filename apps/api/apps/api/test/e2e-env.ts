@@ -23,3 +23,8 @@ if (testDatabaseUrl === process.env.DATABASE_URL) {
 
 process.env.DATABASE_URL = testDatabaseUrl;
 process.env.JWT_SECRET ??= 'end-to-end-test-secret';
+
+// StorageModule refuses to start without a bucket. The suites override
+// ObjectStorage with a fake, so this name is never dialled — but the config it
+// satisfies is the same one production reads, which is the point.
+process.env.GCS_BUCKET ??= 'siriinvest-kyc-test';
