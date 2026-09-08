@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { AccountMenu, IdentityCard } from "@/features/account";
+import { AccountIdentity, AccountMenu } from "@/features/account";
 import { PageHeader } from "@/features/shell";
-import { USER } from "@/mock/account";
 
 export const metadata: Metadata = { title: "Account" };
 
@@ -15,7 +14,7 @@ export default function AccountPage() {
       />
 
       <div className="max-w-[640px] space-y-5">
-        <IdentityCard user={USER} />
+        <AccountIdentity />
         <AccountMenu />
       </div>
     </>

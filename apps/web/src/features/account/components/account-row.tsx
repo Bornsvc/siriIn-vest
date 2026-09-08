@@ -17,6 +17,7 @@ export function AccountRow({
   label,
   value,
   href,
+  onClick,
   tone = "default",
   soon,
 }: {
@@ -25,8 +26,10 @@ export function AccountRow({
   eyebrow: string;
   label: string;
   value?: ReactNode;
-  /** Omit for a stub — the row renders as a button instead. */
+  /** Omit for a stub or a button — the row renders as a button instead. */
   href?: string;
+  /** Makes the row a control that acts here, rather than navigates. */
+  onClick?: () => void;
   tone?: Tone;
   soon?: boolean;
 }) {
@@ -96,7 +99,7 @@ export function AccountRow({
   }
 
   return (
-    <button type="button" className={shell}>
+    <button type="button" onClick={onClick} className={shell}>
       {inner}
     </button>
   );

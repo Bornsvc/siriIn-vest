@@ -7,6 +7,8 @@ export { fetchProvinces, type Province } from "./lib/provinces";
 export { fetchFundSources, type FundSource } from "./lib/fund-sources";
 export { signUp, signIn, type AuthSession, type AuthUser, type UserStatus } from "./lib/auth-api";
 export { saveSession, getSession, getAccessToken, clearSession } from "./lib/session";
+export { fetchProfile, type Profile } from "./lib/profile-api";
+export { ProfileProvider, useProfile } from "./components/profile-provider";
 export { PasswordInput } from "./components/password-input";
 export { PasswordStrength } from "./components/password-strength";
 export {

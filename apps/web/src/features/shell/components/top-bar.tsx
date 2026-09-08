@@ -3,12 +3,22 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { NOTIFICATIONS, USER } from "@/mock/account";
+import { NOTIFICATIONS } from "@/mock/account";
+import { useProfile } from "@/features/auth";
+import type { KycStatus } from "@/shared/types";
 import { Logo } from "@/shared/ui/logo";
 import { IconBell, IconSearch } from "@/shared/ui/icons";
 
+/** The one line under the name. Verification is stated, never implied. */
+const KYC_LINE: Record<KycStatus, string> = {
+  verified: "ບັນຊີຢືນຢັນແລ້ວ",
+  pending: "ກຳລັງກວດສອບ",
+  unverified: "ຍັງບໍ່ໄດ້ຢືນຢັນ",
+};
+
 export function TopBar() {
   const router = useRouter();
+  const { profile } = useProfile();
   const [query, setQuery] = useState("");
   const unread = NOTIFICATIONS.filter((n) => !n.read).length;
 
@@ -57,18 +67,20 @@ export function TopBar() {
           href="/account"
           className="flex items-center gap-2.5 rounded-pill py-1 pl-1 pr-1 transition-colors hover:bg-canvas sm:pr-3"
         >
+          {/* Until the profile lands the avatar is a plain disc, so the bar
+              does not reflow when the name arrives. */}
           <span
             aria-hidden
             className="grid size-8 place-items-center rounded-full bg-brand-800 font-display text-[12px] font-semibold text-white"
           >
-            {USER.initials}
+            {profile?.initials ?? ""}
           </span>
           <span className="hidden text-left leading-tight sm:block">
             <span className="block text-[13px] font-medium text-ink-950">
-              {USER.name.split(" ")[0]}
+              {profile ? profile.name.split(" ")[0] : "Account"}
             </span>
             <span className="lao block text-[10.5px] text-ink-400">
-              ບັນຊີຢືນຢັນແລ້ວ
+              {profile ? KYC_LINE[profile.kycStatus] : "\u00a0"}
             </span>
           </span>
         </Link>

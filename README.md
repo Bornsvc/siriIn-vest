@@ -124,6 +124,7 @@ apps/api/
 | `POST` | `/auth/sign-up` | `name`, `email`, `phone`, `password`, `acceptedTerms` → 201 with a session |
 | `POST` | `/auth/sign-in` | `email`, `password` → 200 with a session |
 | `GET` | `/auth/me` | the caller, behind `Authorization: Bearer …` |
+| `GET` | `/profile` | the signed-in customer as the app shell draws them |
 | `GET` | `/provinces` | the 18 divisions, public — the identity form needs them before anyone has an account |
 | `GET` | `/fund-sources` | the six answers to "where is the money from", public for the same reason |
 | `POST` | `/kyc/uploads` | a signed URL for one photo; the browser PUTs straight to the bucket |
@@ -147,6 +148,11 @@ Field messages are the copy the web forms already show — the rules in
 `UsersRepository` is abstract and `UsersModule` is the single line that names an
 implementation — `PrismaUsersRepository` in the app, `InMemoryUsersRepository`
 in the unit tests. Neither the service nor its specs know which one they have.
+
+`GET /profile` returns the same field names as `User` in
+`apps/web/src/shared/types`, so the screens that read `USER` from `src/mock`
+can swap the import and change nothing else. `kycStatus` is derived: the
+account's own status, unless a check is still with the reviewer.
 
 ### The database
 

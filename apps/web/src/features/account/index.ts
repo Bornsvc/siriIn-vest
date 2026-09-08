@@ -1,4 +1,6 @@
 export { IdentityCard } from "./components/identity-card";
+export { AccountIdentity } from "./components/account-identity";
+export { LogOutRow } from "./components/log-out-row";
 export { AccountMenu } from "./components/account-menu";
 export { AccountRow } from "./components/account-row";
 export { SettingRow } from "./components/setting-row";

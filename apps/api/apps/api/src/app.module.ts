@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { FundSourcesModule } from './fund-sources/fund-sources.module';
 import { KycModule } from './kyc/kyc.module';
+import { ProfileModule } from './profile/profile.module';
 import { ProvincesModule } from './provinces/provinces.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
@@ -16,6 +17,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     AuthModule,
     ProvincesModule,
+    ProfileModule,
     FundSourcesModule,
     KycModule,
   ],

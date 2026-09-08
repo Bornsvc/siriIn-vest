@@ -2,12 +2,12 @@ import { BANK_ACCOUNTS } from "@/mock/account";
 import { Card, CardHeader } from "@/shared/ui";
 import {
   IconBank,
-  IconLogout,
   IconSettings,
   IconShield,
   IconUser,
 } from "@/shared/ui/icons";
 import { AccountRow } from "./account-row";
+import { LogOutRow } from "./log-out-row";
 import { IconHelp } from "@/shared/ui/icons";
 
 /**
@@ -63,13 +63,7 @@ export function AccountMenu() {
 
       {/* Its own card — logging out is not one more preference. */}
       <Card>
-        <AccountRow
-          icon={IconLogout}
-          eyebrow="ອອກຈາກລະບົບ"
-          label="Log out"
-          tone="loss"
-          href="/login"
-        />
+        <LogOutRow />
       </Card>
     </div>
   );

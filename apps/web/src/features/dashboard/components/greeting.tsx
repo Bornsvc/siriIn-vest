@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { USER } from "@/mock/account";
+import { useProfile } from "@/features/auth";
 
 const PARTS = [
   { until: 12, lo: "ສະບາຍດີຕອນເຊົ້າ", en: "Good morning" },
@@ -30,7 +30,8 @@ export function Greeting() {
       ? null
       : (PARTS.find((entry) => hour < entry.until) ?? PARTS[2]);
 
-  const firstName = USER.name.split(" ")[0];
+  const { profile } = useProfile();
+  const firstName = profile?.name.split(" ")[0] ?? "";
 
   return (
     <div className="mb-6">
