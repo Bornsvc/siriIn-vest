@@ -3,8 +3,16 @@ export { AuthHeading } from "./components/auth-heading";
 export { LoginForm } from "./components/login-form";
 export { RegisterForm } from "./components/register-form";
 export { VerifyFlow } from "./components/verify-flow";
-export { fetchProvinces, type Province } from "./lib/provinces";
-export { fetchFundSources, type FundSource } from "./lib/fund-sources";
+export {
+  fetchProvinces,
+  FALLBACK_PROVINCES,
+  type Province,
+} from "./lib/provinces";
+export {
+  fetchFundSources,
+  FALLBACK_FUND_SOURCES,
+  type FundSource,
+} from "./lib/fund-sources";
 export { signUp, signIn, type AuthSession, type AuthUser, type UserStatus } from "./lib/auth-api";
 export { saveSession, getSession, getAccessToken, clearSession } from "./lib/session";
 export { fetchProfile, type Profile } from "./lib/profile-api";

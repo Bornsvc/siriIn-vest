@@ -35,6 +35,8 @@ model User {
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   kycSubmissions KycSubmission[]
+  transfers      Transfer[]
+  cashEntries    CashEntry[]
 
   @@map("users")
 }
@@ -163,4 +165,108 @@ model KycDocument {
   /// row per kind. The database enforces it, not just the form.
   @@unique([submissionId, kind])
   @@map("kyc_documents")
+}
+
+/// A kip-to-dollar rate as it stood at one moment.
+///
+/// Rows are only ever added. A transfer points at the row it used, so a
+/// receipt from last month keeps the numbers it was issued with however far
+/// the rate moves afterwards.
+model FxRate {
+  id String @id @default(uuid()) @db.Uuid
+  /// How many kip one U.S. dollar buys.
+  usdLak     Decimal  @map("usd_lak") @db.Decimal(18, 6)
+  /// The desk, bank or feed it came from.
+  source     String
+  observedAt DateTime @map("observed_at") @db.Timestamptz(3)
+
+  transfers Transfer[]
+
+  @@index([observedAt])
+  @@map("fx_rates")
+}
+
+enum Currency {
+  lak
+  usd
+
+  @@map("currency")
+}
+
+enum TransferKind {
+  deposit
+  withdrawal
+
+  @@map("transfer_kind")
+}
+
+enum TransferStatus {
+  pending
+  settled
+  failed
+
+  @@map("transfer_status")
+}
+
+/// Money on its way in or out: kip on one side, dollars on the other, and the
+/// exact rate that joined them.
+model Transfer {
+  id     String         @id @default(uuid()) @db.Uuid
+  userId String         @map("user_id") @db.Uuid
+  kind   TransferKind
+  status TransferStatus @default(pending)
+  /// What the customer quotes when they ask where their money is.
+  reference String @unique
+
+  amountKip Decimal @map("amount_kip") @db.Decimal(20, 2)
+  amountUsd Decimal @map("amount_usd") @db.Decimal(18, 2)
+  /// Which side the customer typed. The other was derived from the rate.
+  enteredIn Currency @map("entered_in")
+  fxRateId  String   @map("fx_rate_id") @db.Uuid
+
+  requestedAt   DateTime  @default(now()) @map("requested_at") @db.Timestamptz(3)
+  settledAt     DateTime? @map("settled_at") @db.Timestamptz(3)
+  failureReason String?   @map("failure_reason")
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fxRate      FxRate      @relation(fields: [fxRateId], references: [id])
+  cashEntries CashEntry[]
+
+  /// The customer's own history, newest first.
+  @@index([userId, requestedAt])
+  /// The operations queue.
+  @@index([status, requestedAt])
+  @@map("transfers")
+}
+
+enum CashEntryKind {
+  deposit
+  withdrawal
+  withdrawal_reversal
+  adjustment
+
+  @@map("cash_entry_kind")
+}
+
+/// The dollar ledger.
+///
+/// Append-only, and the balance is the sum of these rows — never a column that
+/// gets overwritten. A wallet with a mutable `balance` loses money silently;
+/// this way every movement carries the reason it happened and the thing that
+/// caused it, so a wrong total can be traced to the row that made it wrong.
+model CashEntry {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  /// Signed: credits positive, debits negative.
+  amountUsd   Decimal       @map("amount_usd") @db.Decimal(18, 2)
+  kind        CashEntryKind
+  transferId  String?       @map("transfer_id") @db.Uuid
+  description String
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transfer Transfer? @relation(fields: [transferId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("cash_entries")
 }

@@ -15,6 +15,8 @@ import {
 } from "@/shared/ui";
 import { IconCheck, IconClock, IconSelfie, IconShield } from "@/shared/ui/icons";
 import { ApiError } from "@/shared/lib/api-client";
+import { DEMO_MODE } from "@/shared/config/demo";
+import { getDemoSubmission, saveDemoSubmission } from "../lib/demo-session";
 import type { FundSource } from "../lib/fund-sources";
 import type { Province } from "../lib/provinces";
 import {
@@ -30,6 +32,7 @@ import {
   EMPTY_DETAILS,
   EMPTY_PHOTO,
   VERIFY_STEPS,
+  maskDocumentNumber,
   type DetailErrors,
   type Details,
   type DocumentDraft,
@@ -66,6 +69,19 @@ const DETAIL_ORDER = [
   ["province", "verify-province"],
   ["funds", "verify-funds"],
 ] as const;
+
+/** A believable pause rather than a suspicious instant success. */
+function afterAPause<T>(value: T): Promise<T> {
+  return new Promise((resolve) => setTimeout(() => resolve(value), 600));
+}
+
+/** Stands in for the ticket-then-bucket round trip: same shape, same delay
+    to make the "Uploading…" state readable, nothing actually sent anywhere. */
+function simulateDemoUpload(): Promise<string> {
+  return new Promise((resolve) =>
+    setTimeout(() => resolve(`demo/${Date.now()}-${Math.random().toString(36).slice(2)}`), 500),
+  );
+}
 
 const FIELD_TO_DETAIL: Partial<Record<string, keyof Details>> = {
   fullName: "name",
@@ -279,6 +295,21 @@ export function VerifyFlow({
     }
     tokenRef.current = accessToken;
 
+    if (DEMO_MODE) {
+      // Deferred rather than called straight from the effect body, so this
+      // reads the same as the real branch below and not as a same-render
+      // setState.
+      Promise.resolve(getDemoSubmission()).then((submission) => {
+        if (submission) {
+          setExisting(submission);
+          setPhase("existing");
+        } else {
+          setPhase("form");
+        }
+      });
+      return;
+    }
+
     let cancelled = false;
     fetchLatestSubmission(accessToken)
       .then((submission) => {
@@ -386,8 +417,8 @@ export function VerifyFlow({
     setDocErrors((current) => ({ ...current, [side]: undefined }));
 
     const token = tokenRef.current;
-    if (!token) return;
-    uploadKycPhoto(token, kind, file)
+    if (!DEMO_MODE && !token) return;
+    (DEMO_MODE ? simulateDemoUpload() : uploadKycPhoto(token!, kind, file))
       .then((storageKey) => {
         setDoc((current) =>
           current[side].file === file
@@ -428,8 +459,8 @@ export function VerifyFlow({
     setSelfieError(undefined);
 
     const token = tokenRef.current;
-    if (!token) return;
-    uploadKycPhoto(token, "selfie", file)
+    if (!DEMO_MODE && !token) return;
+    (DEMO_MODE ? simulateDemoUpload() : uploadKycPhoto(token!, "selfie", file))
       .then((storageKey) => {
         setSelfie((current) =>
           current.file === file ? { file, storageKey, status: "done" } : current,
@@ -514,6 +545,35 @@ export function VerifyFlow({
     if (!matched) setSubmitError(error.message);
   }
 
+  /** Same shape the real API answers with, built from what is already on
+      the screen — so the receipt below renders identically either way. */
+  function fabricateDemoSubmission(
+    photos: { kind: DocumentKindValue; storageKey: string }[],
+  ): KycSubmissionView {
+    const province = provinces.find((item) => item.code === details.province);
+    const fundSource = fundSources.find((item) => item.code === details.funds);
+    return {
+      id: "demo-submission",
+      reference: `SI-KYC-${Math.floor(1_000_000 + Math.random() * 9_000_000)}`,
+      status: "in_review",
+      submittedAt: new Date().toISOString(),
+      reviewedAt: null,
+      details: {
+        fullName: details.name,
+        dateOfBirth: details.dob,
+        village: details.village,
+        district: details.district,
+        province: { code: details.province, name: province?.name ?? details.province },
+        fundSource: { code: details.funds, label: fundSource?.label ?? details.funds },
+      },
+      document: { type: doc.type, number: maskDocumentNumber(doc.number) },
+      photos: photos.map((photo) => ({
+        kind: photo.kind,
+        uploadedAt: new Date().toISOString(),
+      })),
+    };
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (sending) return;
@@ -544,17 +604,20 @@ export function VerifyFlow({
     setSending(true);
     setSubmitError(undefined);
     try {
-      const submission = await submitKyc(token, {
-        fullName: details.name,
-        dateOfBirth: details.dob,
-        village: details.village,
-        district: details.district,
-        provinceCode: details.province,
-        fundSourceCode: details.funds,
-        documentType: doc.type,
-        documentNumber: doc.number,
-        photos,
-      });
+      const submission = DEMO_MODE
+        ? await afterAPause(fabricateDemoSubmission(photos))
+        : await submitKyc(token, {
+            fullName: details.name,
+            dateOfBirth: details.dob,
+            village: details.village,
+            district: details.district,
+            provinceCode: details.province,
+            fundSourceCode: details.funds,
+            documentType: doc.type,
+            documentNumber: doc.number,
+            photos,
+          });
+      if (DEMO_MODE) saveDemoSubmission(submission);
       setSubmitted(submission);
     } catch (error) {
       if (error instanceof ApiError) {

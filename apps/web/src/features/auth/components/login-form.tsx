@@ -4,10 +4,17 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Note } from "@/shared/ui";
 import { ApiError } from "@/shared/lib/api-client";
+import { DEMO_MODE } from "@/shared/config/demo";
 import { signIn } from "../lib/auth-api";
+import { demoSession } from "../lib/demo-session";
 import { saveSession } from "../lib/session";
 import { validateSignInIdentifier } from "../lib/validation";
 import { PasswordInput } from "./password-input";
+
+/** A believable pause rather than a suspicious instant success. */
+function afterAPause<T>(value: T): Promise<T> {
+  return new Promise((resolve) => setTimeout(() => resolve(value), 500));
+}
 
 type Errors = { identifier?: string; password?: string };
 
@@ -41,7 +48,9 @@ export function LoginForm() {
     setPending(true);
     setFormError(undefined);
     try {
-      const session = await signIn({ identifier, password });
+      const session = DEMO_MODE
+        ? await afterAPause(demoSession())
+        : await signIn({ identifier, password });
       saveSession(session);
       // A customer who never finished the identity check picks up exactly
       // where they left off; everyone else goes straight to their account.

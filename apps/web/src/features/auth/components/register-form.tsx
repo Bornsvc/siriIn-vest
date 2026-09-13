@@ -5,7 +5,9 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input } from "@/shared/ui";
 import { ApiError } from "@/shared/lib/api-client";
+import { DEMO_MODE } from "@/shared/config/demo";
 import { signUp } from "../lib/auth-api";
+import { demoSession } from "../lib/demo-session";
 import { saveSession } from "../lib/session";
 import {
   validateEmail,
@@ -15,6 +17,11 @@ import {
 } from "../lib/validation";
 import { PasswordInput } from "./password-input";
 import { PasswordStrength } from "./password-strength";
+
+/** A believable pause rather than a suspicious instant success. */
+function afterAPause<T>(value: T): Promise<T> {
+  return new Promise((resolve) => setTimeout(() => resolve(value), 500));
+}
 
 type Errors = {
   name?: string;
@@ -78,13 +85,9 @@ export function RegisterForm() {
     setPending(true);
     setFormError(undefined);
     try {
-      const session = await signUp({
-        name,
-        email,
-        phone,
-        password,
-        acceptedTerms: accepted,
-      });
+      const session = DEMO_MODE
+        ? await afterAPause(demoSession())
+        : await signUp({ name, email, phone, password, acceptedTerms: accepted });
       saveSession(session);
       // KYC is the next thing that happens: the account is `unverified`
       // until a check clears.

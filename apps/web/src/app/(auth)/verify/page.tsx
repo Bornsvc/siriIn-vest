@@ -4,6 +4,8 @@ import {
   VerifyFlow,
   fetchFundSources,
   fetchProvinces,
+  FALLBACK_FUND_SOURCES,
+  FALLBACK_PROVINCES,
   type FundSource,
   type Province,
 } from "@/features/auth";
@@ -16,7 +18,9 @@ export const metadata: Metadata = { title: "Verify your identity" };
  *
  * The province and fund-source lists are fetched here rather than in the
  * flow so they are on the page at first paint — the customer never watches a
- * select fill itself in.
+ * select fill itself in. If the API cannot be reached at all — demo mode, or
+ * the API genuinely being down — the fallback snapshot keeps both selects
+ * usable instead of showing "Unavailable".
  */
 export default async function VerifyPage() {
   // Stop prerendering here, before the fetch. Without it the build's attempt to
@@ -24,8 +28,8 @@ export default async function VerifyPage() {
   // catch below — where a failed API call is meant to be the only thing caught.
   await connection();
 
-  let provinces: Province[] = [];
-  let fundSources: FundSource[] = [];
+  let provinces: Province[] = FALLBACK_PROVINCES;
+  let fundSources: FundSource[] = FALLBACK_FUND_SOURCES;
 
   const [provincesResult, fundSourcesResult] = await Promise.allSettled([
     fetchProvinces(),
@@ -35,8 +39,8 @@ export default async function VerifyPage() {
   if (provincesResult.status === "fulfilled") {
     provinces = provincesResult.value;
   } else {
-    // Not fatal to the page: the other fields still work, and the step says
-    // why this one does not. The reason belongs in the server log.
+    // Not fatal to the page: the fallback list still works, and the reason
+    // belongs in the server log rather than in front of the customer.
     console.error("Could not load the province list.", provincesResult.reason);
   }
 

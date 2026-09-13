@@ -126,6 +126,11 @@ apps/api/
 | `GET` | `/auth/me` | the caller, behind `Authorization: Bearer …` |
 | `GET` | `/profile` | the signed-in customer as the app shell draws them |
 | `GET` | `/provinces` | the 18 divisions, public — the identity form needs them before anyone has an account |
+| `GET` | `/fx/rate` | the kip⇄dollar rate, public — every kip figure in the app derives from it |
+| `GET` | `/wallet` | settled cash, money still arriving, and the rate to read it in kip |
+| `GET` | `/wallet/transfers` | the customer's transfer history, paged |
+| `POST` | `/wallet/deposits` | `currency` (`lak`/`usd`), `amount` → a pending transfer |
+| `POST` | `/wallet/withdrawals` | `amountUsd` → a pending transfer, debited immediately |
 | `GET` | `/fund-sources` | the six answers to "where is the money from", public for the same reason |
 | `POST` | `/kyc/uploads` | a signed URL for one photo; the browser PUTs straight to the bucket |
 | `POST` | `/kyc/submissions` | one identity check: the three steps of the form in one request |
@@ -203,6 +208,17 @@ size and SHA-256, and never the bytes. `@@unique([submissionId, kind])` is what
 makes "a passport has one photo page, an ID card has two sides" a rule the
 database keeps rather than only the form. Every row carries `purge_after`, from
 `KYC_RETENTION_DAYS`.
+
+`cash_entries` is a ledger, not a balance. A wallet with a mutable `balance`
+column loses money silently; here the balance is the sum of signed rows, each
+carrying what caused it. `transfers` keeps both sides of every conversion and
+the `fx_rates` row it used, so a receipt from last month still reads the way it
+was issued. Money crosses the wire as decimal strings — a JSON number is a
+float64, and a float64 cannot hold 0.1.
+
+A withdrawal is debited when it is requested, not when it settles: money that
+has been asked for is spoken for. Failing one writes a reversal rather than
+deleting anything.
 
 `provinces` is reference data — Laos' 17 provinces and the capital prefecture,
 seeded by its own migration so every database that migrates has the list. Rows

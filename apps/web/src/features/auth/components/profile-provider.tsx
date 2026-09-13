@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError } from "@/shared/lib/api-client";
+import { DEMO_MODE } from "@/shared/config/demo";
+import { demoProfile } from "../lib/demo-session";
 import { fetchProfile, type Profile } from "../lib/profile-api";
 import { clearSession, getAccessToken } from "../lib/session";
 
@@ -48,7 +50,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false;
 
-    fetchProfile(token)
+    (DEMO_MODE ? Promise.resolve(demoProfile()) : fetchProfile(token))
       .then((profile) => {
         if (!cancelled) setState({ profile, loading: false, error: null });
       })

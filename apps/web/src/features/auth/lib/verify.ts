@@ -157,3 +157,11 @@ export const EMPTY_DETAILS: Details = {
   province: "",
   funds: "",
 };
+
+/** The same masking the API applies before handing a document number back —
+    needed here too for the demo submission, which never reaches the API. */
+export function maskDocumentNumber(value: string): string {
+  const compact = value.replace(/\s+/g, "");
+  if (compact.length <= 4) return compact;
+  return `${"•".repeat(Math.min(compact.length - 4, 8))}${compact.slice(-4)}`;
+}
